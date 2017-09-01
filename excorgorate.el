@@ -53,7 +53,10 @@ and I'm currently ignoring it."
 	    (exco-calendar-item-iterate
 	     resp
 	     (lambda (subject start end loc main opt)
-	       (format "%s--%s %s" start end subject)))))))
+	       (message "%s %s"
+		       (excorgorate-relative-date-format
+			start end (encode-time 0 0 0 (cadr date) (car date) (caddr date)))
+		       subject)))))))
 
 
 (defun excorgorate-relative-date-format (begin end local)
@@ -62,40 +65,18 @@ and I'm currently ignoring it."
 Given a date range from BEGIN to END and a specific day LOCAL,
 return the correct \"org-agenda\" representation of this date in the
 range."
-     (pcase-let
-	 ((`(,month ,day ,year) local)
-       	  (`(,es ,em ,eh ,eD ,eM ,eY) begin)
-       	  (`(,bs ,bm ,bh ,bD ,bM ,bY) end))
-       (cond
-	((and (= day eD) (= month eM) (= year eY)
-	      (= day bD) (= month bM) (= year bY))
-	 (format "%2d:%02d--%2d:%02d" bh bm eh em))
-	((and (= day eD) (= month eM) (= year eY))
-	 (format "%2d:%02d" eh em))
-	((and (= day bD) (= month bM) (= year bY))
-	 (format "%2d:%02d" bh bm))
-       	 "")))
-
-(defun excorgorate-parse-calendar-item (item)
-  "Turn calendar ITEM into a plist of event information."
-  (setq result '(all-day ()))
-  (dolist (key item result)
-    (if (listp key)
-	(cond
-	 ((eq 'Subject (car key))
-	  (setq result
-		(plist-put result 'subject (cdr key))))
-	 ((eq 'End (car key))
-	  (setq result
-		(plist-put result 'stop
-			   (decode-time (date-to-time (cdr key))))))
-	 ((eq 'IsAllDayEvent (car key))
-	  (setq result
-		(plist-put result 'all-day (cdr key))))
-	 ((eq 'Start (car key))
-	  (setq result
-		(plist-put result 'start
-			   (decode-time (date-to-time (cdr key))))))))))
+  (message "%s" (decode-time end) (current-time-zone))
+  (if
+   (and (< (car begin) (car local))
+	 (> (car end) (car local)))
+    ""
+    (format "%s--%s"
+	      (format "%2d:%02d"
+		      (caddr (decode-time begin))
+		      (cadr (decode-time begin)))
+	      (format "%2d:%02d"
+		      (caddr (decode-time end))
+		      (cadr (decode-time end))))))
 
 (defun excorgorate-get-meetings (date)
   "Get all of the outlook events on a given DATE."
