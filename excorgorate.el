@@ -24,7 +24,7 @@
 
 ;;; Code:
 
-;;This code was taken, under the Unlicence, from
+;;This latching code was taken, under the Unlicence, from
 ;;https://github.com/skeeto/elisp-latch/blob/master/latch.el
 ;;
 
@@ -32,37 +32,37 @@
   (require 'cl)
   (require 'eieio))
 
-(defclass latch ()
+(defclass excorgorate--latch ()
   ((process :initform (start-process "latch" nil nil))
    (value :initform nil))
   :documentation "A blocking latch that can be used any number of times.")
 
-(defmethod wait ((latch latch) &optional timeout)
+(defmethod excorgorate--wait ((latch latch) &optional timeout)
   "Blocking wait on LATCH for a corresponding `notify', returning
 the value passed by the notification. Wait at most TIMEOUT
 seconds (float allowed), returning nil if the timeout was reached
 with no input. The Emacs display will not update during this
 period but I/O and timers will continue to run."
-  (accept-process-output (slot-value latch 'process) timeout)
-  (slot-value latch 'value))
+  (accept-process-output (slot-value excorgorate--latch 'process) timeout)
+  (slot-value excorgorate--latch 'value))
 
-(defmethod notify ((latch latch) &optional value)
+(defmethod excorgorate--notify ((latch latch) &optional value)
   "Release all execution contexts waiting on LATCH, passing them VALUE."
-  (setf (slot-value latch 'value) value)
-  (process-send-string (slot-value latch 'process) "\n"))
+  (setf (slot-value excorgorate--latch 'value) value)
+  (process-send-string (slot-value excorgorate--latch 'process) "\n"))
 
-(defmethod destroy ((latch latch))
+(defmethod excorgorate--destroy ((latch latch))
   "Destroy a latch, since they can't be fully memory managed."
   (ignore-errors
-(delete-process (slot-value latch 'process))))
+(delete-process (slot-value excorgorate--latch 'process))))
 
-(defun make-latch ()
+(defun excorgorate--make-latch ()
   "Make a latch which can be used any number of times. It must be
 `destroy'ed when no longer used, because the underlying process
 will not be garbage collected."
-  (make-instance 'latch))
+  (make-instance 'excorgorate--latch))
 
-(defun destroy-all-latches ()
+(defun excorgorate--destroy-all-latches ()
   "Destroy all known latches."
   (loop for process in (process-list)
         when (string-match-p "latch\\(<[0-9]+>\\)?" (process-name process))
@@ -70,48 +70,48 @@ will not be garbage collected."
 
 ;; One-use latches
 
-(defclass one-time-latch (latch)
+(defclass excorgorate--one-time-latch (excorgorate--latch)
   ()
   :documentation "A latch that is destroyed automatically after one use.")
 
-(defmethod wait :after ((latch one-time-latch) &optional timeout)
-  (destroy latch))
+(defmethod excorgorate--wait :after ((latch excorgorate--one-time-latch) &optional timeout)
+  (excorgorate--destroy latch))
 
-(defun make-one-time-latch ()
+(defun excorgorate--make-one-time-latch ()
   "Make a latch that is destroyed automatically after a single use."
-  (make-instance 'one-time-latch))
+  (make-instance 'excorgorate--one-time-latch))
 
 ;; Promises
 
-(defclass promise ()
-  ((latch :initform (make-one-time-latch))
+(defclass excorgorate--promise ()
+  ((latch :initform (excorgorate--make-one-time-latch))
    (delivered :initform nil)
    (value :initform nil))
   :documentation "Promise built on top of a one-time latch.")
 
-(defmethod deliver ((promise promise) value)
+(defmethod excorgorate--deliver ((promise excorgorate--promise) value)
   "Deliver a VALUE to PROMISE, releasing any execution contexts
 waiting on it."
   (if (slot-value promise 'delivered)
       (error "Promise has already been delivered.")
     (setf (slot-value promise 'value) value)
     (setf (slot-value promise 'delivered) t)
-    (notify (slot-value promise 'latch) value)))
+    (excorgorate--notify (slot-value promise 'latch) value)))
 
-(defmethod retrieve ((promise promise))
+(defmethod retrieve ((promise excorgorate--promise))
   "Resolve the value for PROMISE, blocking if necessary. The
 Emacs display will freeze, but I/O and timers will continue to
 run."
   (if (slot-value promise 'delivered)
       (slot-value promise 'value)
-    (wait (slot-value promise 'latch))))
+    (excorgorate--wait (slot-value promise 'latch))))
 
-(defun make-promise ()
+(defun excorgorate--make-promise ()
   "Make a new, unresolved promise. `deliver' a value to it so
 that it can be `retrieve'd."
-(make-instance 'promise))
+(make-instance 'excorgorate--promise))
 
-;;;;;  Here's the original code within this project
+;;  Here's the original code within this project
 
 (defgroup excorgorate nil "A method for loading Outlook calendars into the Org Agenda"
   :group 'excorporate)
@@ -169,15 +169,15 @@ range."
 (defun excorgorate-get-meetings (date)
   "Get all of the outlook events on a given DATE."
   (lexical-let
-      ((promise (make-promise))
+      ((promise (excorgorate--make-promise))
        (month (car date))
        (day (cadr date))
        (year (caddr date)))
     (exco-get-meetings-for-day
      excorgorate-default-account
      month day year
-     (lambda (ident resp) (deliver promise (list ident resp))))
-    (retrieve promise)))
+     (lambda (ident resp) (excorgorate--deliver promise (list ident resp))))
+    (excorgorate--retrieve promise)))
 
 
 (provide 'excorgorate)
