@@ -38,47 +38,23 @@
   :group 'excorgorate)
 
 
-(defun excorgorate-first-meeting (&optional mark)
+(defun excorgorate-meetings (&optional mark)
   "Add the first outlook meeting for a given day to the Agenda.
 
 This function takes an optional MARK argument, because
 \"org-mode\" seems to pass one.  I have not idea what it means
 and I'm currently ignoring it."
   (if exco--connections
-      (let
-	  ((meeting (car-safe (excorgorate-get-meetings date))))
+      (letrec
+	  ((meeting (excorgorate-get-meetings date))
+	   (ident (car meeting))
+	   (resp (cadr meeting)))
 	(if meeting
-	    (format
-	     "%s %s"
+	    (exco-calendar-item-iterate
+	     resp
+	     (lambda (subject start end loc main opt)
+	       (format "%s--%s %s" start end subject)))))))
 
-	     (if (plist-get meeting 'all-day)
-		""
-	       (excorgorate-relative-date-format
-		(plist-get meeting 'start)
-		(plist-get meeting 'stop)
-		date))
-	     (plist-get meeting 'subject))))))
-
-(defun excorgorate-second-meeting (&optional mark)
-  "Add the second outlook meeting for a given day to the Agenda.
-
-This function takes an optional MARK argument, because
-\"org-mode\" seems to pass one.  I have not idea what it means
-and I'm currently ignoring it."
-  (if exco--connections
-      (let
-	  ((meeting (car-safe (cdr-safe (excorgorate-get-meetings date)))))
-	(if meeting
-	    (format
-	     "%s %s"
-
-	     (if (plist-get meeting 'all-day)
-		""
-	       (excorgorate-relative-date-format
-		(plist-get meeting 'start)
-		(plist-get meeting 'stop)
-		date))
-	     (plist-get meeting 'subject))))))
 
 (defun excorgorate-relative-date-format (begin end local)
   "Find the correct agenda formatting for a date in a a range.
@@ -131,16 +107,8 @@ range."
     (exco-get-meetings-for-day
      excorgorate-default-account
      month day year
-     (lambda (ident resp) (deliver promise resp)))
-     (-filter
-      (lambda (x)
-	(pcase-let
-	    ((`(,second ,minute ,hour ,date)
-	      (plist-get x 'stop)))
-	  (not
-	   (and (eq date day) (eq hour 0) (eq minute 0)))))
-      (mapcar #'excorgorate-parse-calendar-item
-	      (cdar (last (car (last (cdr (cadaar (retrieve promise)))))))))))
+     (lambda (ident resp) (deliver promise (list ident resp))))
+    (retrieve promise)))
 
 
 (provide 'excorgorate)
