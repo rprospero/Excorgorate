@@ -142,7 +142,10 @@ and I'm currently ignoring it."
 		     (message "%s %s"
 			      (excorgorate-relative-date-format
 			       start end (encode-time 0 0 0 (cadr date) (car date) (caddr date)))
-			      subject))))))))
+			      subject)))))
+			      subject)))
+		""))
+	  "")))
     (destroy-all-latches)
     result))
 
