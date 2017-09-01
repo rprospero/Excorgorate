@@ -29,6 +29,15 @@
 
 (require 'latch)
 
+(defgroup excorgorate nil "A method for loading Outlook calendars into the Org Agenda"
+  :group 'excorporate)
+
+(defcustom excorgorate-default-account user-mail-address
+  "The default account to pull contacts from."
+  :type 'string
+  :group 'excorgorate)
+
+
 (defun excorporate-first-meeting (&optional mark)
   "Add the first outlook meeting for a given day to the Agenda.
 
@@ -113,7 +122,7 @@ and I'm currently ignoring it."
        (day (cadr date))
        (year (caddr date)))
     (exco-get-meetings-for-day
-     "adam.washington@stfc.ac.uk"
+     excorgorate-default-account
      month day year
      (lambda (ident resp) (deliver promise resp)))
      (-filter
