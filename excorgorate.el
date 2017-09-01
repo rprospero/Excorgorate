@@ -38,7 +38,7 @@
   :group 'excorgorate)
 
 
-(defun excorporate-first-meeting (&optional mark)
+(defun excorgorate-first-meeting (&optional mark)
   "Add the first outlook meeting for a given day to the Agenda.
 
 This function takes an optional MARK argument, because
@@ -46,20 +46,20 @@ This function takes an optional MARK argument, because
 and I'm currently ignoring it."
   (if exco--connections
       (let
-	  ((meeting (car-safe (adam-get-meetings date))))
+	  ((meeting (car-safe (excorgorate-get-meetings date))))
 	(if meeting
 	    (format
 	     "%s %s"
 
 	     (if (plist-get meeting 'all-day)
 		""
-	       (adam-relative-date-format
+	       (excorgorate-relative-date-format
 		(plist-get meeting 'start)
 		(plist-get meeting 'stop)
 		date))
 	     (plist-get meeting 'subject))))))
 
-(defun excorporate-second-meeting (&optional mark)
+(defun excorgorate-second-meeting (&optional mark)
   "Add the second outlook meeting for a given day to the Agenda.
 
 This function takes an optional MARK argument, because
@@ -67,20 +67,25 @@ This function takes an optional MARK argument, because
 and I'm currently ignoring it."
   (if exco--connections
       (let
-	  ((meeting (car-safe (cdr-safe (adam-get-meetings date)))))
+	  ((meeting (car-safe (cdr-safe (excorgorate-get-meetings date)))))
 	(if meeting
 	    (format
 	     "%s %s"
 
 	     (if (plist-get meeting 'all-day)
 		""
-	       (adam-relative-date-format
+	       (excorgorate-relative-date-format
 		(plist-get meeting 'start)
 		(plist-get meeting 'stop)
 		date))
 	     (plist-get meeting 'subject))))))
 
-(defun adam-relative-date-format (begin end local)
+(defun excorgorate-relative-date-format (begin end local)
+  "Find the correct agenda formatting for a date in a a range.
+
+Given a date range from BEGIN to END and a specific day LOCAL,
+return the correct \"org-agenda\" representation of this date in the
+range."
      (pcase-let
 	 ((`(,month ,day ,year) local)
        	  (`(,es ,em ,eh ,eD ,eM ,eY) begin)
@@ -95,7 +100,8 @@ and I'm currently ignoring it."
 	 (format "%2d:%02d" bh bm))
        	 "")))
 
-(defun adam-parse-calendar-item (item)
+(defun excorgorate-parse-calendar-item (item)
+  "Turn calendar ITEM into a plist of event information."
   (setq result '(all-day ()))
   (dolist (key item result)
     (if (listp key)
@@ -115,7 +121,8 @@ and I'm currently ignoring it."
 		(plist-put result 'start
 			   (decode-time (date-to-time (cdr key))))))))))
 
-(defun adam-get-meetings (date)
+(defun excorgorate-get-meetings (date)
+  "Get all of the outlook events on a given DATE."
   (lexical-let
       ((promise (make-promise))
        (month (car date))
@@ -132,7 +139,7 @@ and I'm currently ignoring it."
 	      (plist-get x 'stop)))
 	  (not
 	   (and (eq date day) (eq hour 0) (eq minute 0)))))
-      (mapcar #'adam-parse-calendar-item
+      (mapcar #'excorgorate-parse-calendar-item
 	      (cdar (last (car (last (cdr (cadaar (retrieve promise)))))))))))
 
 
