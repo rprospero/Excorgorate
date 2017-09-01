@@ -30,35 +30,37 @@
 
 (eval-when-compile
   (require 'cl)
-  (require 'eieio))
+  (require 'eieio)
+  (require 'excorporate))
 
 (defclass excorgorate--latch ()
   ((process :initform (start-process "latch" nil nil))
    (value :initform nil))
   :documentation "A blocking latch that can be used any number of times.")
 
-(defmethod excorgorate--wait ((latch latch) &optional timeout)
+(defmethod excorgorate--wait ((latch excorgorate--latch) &optional timeout)
   "Blocking wait on LATCH for a corresponding `notify', returning
 the value passed by the notification. Wait at most TIMEOUT
 seconds (float allowed), returning nil if the timeout was reached
 with no input. The Emacs display will not update during this
 period but I/O and timers will continue to run."
-  (accept-process-output (slot-value excorgorate--latch 'process) timeout)
-  (slot-value excorgorate--latch 'value))
+  (accept-process-output (slot-value latch 'process) timeout)
+  (slot-value latch 'value))
 
-(defmethod excorgorate--notify ((latch latch) &optional value)
+(defmethod excorgorate--notify ((latch excorgorate--latch) &optional value)
   "Release all execution contexts waiting on LATCH, passing them VALUE."
-  (setf (slot-value excorgorate--latch 'value) value)
-  (process-send-string (slot-value excorgorate--latch 'process) "\n"))
+  (setf (slot-value latch 'value) value)
+  (process-send-string (slot-value latch 'process) "\n"))
 
-(defmethod excorgorate--destroy ((latch latch))
+(defmethod excorgorate--destroy ((latch excorgorate--latch))
   "Destroy a latch, since they can't be fully memory managed."
   (ignore-errors
-(delete-process (slot-value excorgorate--latch 'process))))
+(delete-process (slot-value latch 'process))))
 
 (defun excorgorate--make-latch ()
-  "Make a latch which can be used any number of times. It must be
-`destroy'ed when no longer used, because the underlying process
+  "Make a latch which can be used any number of times.
+
+It must be `destroy'ed when no longer used, because the underlying process
 will not be garbage collected."
   (make-instance 'excorgorate--latch))
 
@@ -93,12 +95,12 @@ will not be garbage collected."
   "Deliver a VALUE to PROMISE, releasing any execution contexts
 waiting on it."
   (if (slot-value promise 'delivered)
-      (error "Promise has already been delivered.")
+      (error "Promise has already been delivered")
     (setf (slot-value promise 'value) value)
     (setf (slot-value promise 'delivered) t)
     (excorgorate--notify (slot-value promise 'latch) value)))
 
-(defmethod retrieve ((promise excorgorate--promise))
+(defmethod excorgorate--retrieve ((promise excorgorate--promise))
   "Resolve the value for PROMISE, blocking if necessary. The
 Emacs display will freeze, but I/O and timers will continue to
 run."
@@ -107,8 +109,9 @@ run."
     (excorgorate--wait (slot-value promise 'latch))))
 
 (defun excorgorate--make-promise ()
-  "Make a new, unresolved promise. `deliver' a value to it so
-that it can be `retrieve'd."
+  "Make a new, unresolved promise.
+
+`deliver' a value to it so that it can be `retrieve'd."
 (make-instance 'excorgorate--promise))
 
 ;;  Here's the original code within this project
@@ -126,37 +129,35 @@ that it can be `retrieve'd."
   "Add the first outlook meeting for a given day to the Agenda.
 
 This function takes an optional MARK argument, because
-\"org-mode\" seems to pass one.  I have not idea what it means
+`org-mode' seems to pass one.  I have not idea what it means
 and I'm currently ignoring it."
   (let
       ((result
-	(if exco--connections
-	    (letrec
-		((meeting (excorgorate-get-meetings date))
-		 (ident (car meeting))
-		 (resp (cadr meeting)))
-	      (if meeting
-		  (exco-calendar-item-iterate
-		   resp
-		   (lambda (subject start end loc main opt)
-		     (message "%s %s"
-			      (excorgorate-relative-date-format
-			       start end (encode-time 0 0 0 (cadr date) (car date) (caddr date)))
-			      subject)))))
-			      subject)))
-		""))
-	  "")))
-    (destroy-all-latches)
+  	(if exco--connections
+  	    (letrec
+  		((meeting (excorgorate--get-meetings date))
+  		 (ident (car meeting))
+  		 (resp (cadr meeting)))
+  	      (if meeting
+  		  (exco-calendar-item-iterate
+  		   resp
+  		   (lambda (subject start end loc main opt)
+  		     (format "%s %s"
+  			      (excorgorate--relative-date-format
+  			       start end (encode-time 0 0 0 (cadr date) (car date) (caddr date)))
+  			      subject)))
+  		"no meeting"))
+  	  "Excorporate not loaded")))
+    (excorgorate--destroy-all-latches)
     result))
 
 
-(defun excorgorate-relative-date-format (begin end local)
+(defun excorgorate--relative-date-format (begin end local)
   "Find the correct agenda formatting for a date in a a range.
 
 Given a date range from BEGIN to END and a specific day LOCAL,
-return the correct \"org-agenda\" representation of this date in the
+return the correct `org-agenda' representation of this date in the
 range."
-  (message "%s" (decode-time end) (current-time-zone))
   (if
    (and (< (car begin) (car local))
 	 (> (car end) (car local)))
@@ -169,7 +170,7 @@ range."
 		      (caddr (decode-time end))
 		      (cadr (decode-time end))))))
 
-(defun excorgorate-get-meetings (date)
+(defun excorgorate--get-meetings (date)
   "Get all of the outlook events on a given DATE."
   (lexical-let
       ((promise (excorgorate--make-promise))
